@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-coeiroink;
+}
+*:not(#hack-for-higher-priority) {
+  font-family: "Kiwi Maru", sans-serif;
+}
+
+.button {
+  @apply nm-flat-coeiroink text-center rounded-md p-2;
+
+  transition: all 0.2s;
+
+  &:hover {
+    @apply nm-flat-coeiroink-sm;
+  }
+
+  &.active {
+    @apply nm-inset-coeiroink;
+
+    &:hover {
+      @apply nm-inset-coeiroink-sm;
+    }
+  }
+}
