@@ -6,8 +6,17 @@ mod commands;
 use tracing::info;
 
 #[tauri::command]
-async fn check_version() -> Result<commands::check_version::CheckVersionResult, String> {
-    commands::check_version::check_version()
+#[cached::proc_macro::once]
+async fn check_latest_version() -> Result<commands::check_latest_version::CheckVersionResult, String>
+{
+    commands::check_latest_version::check_latest_version()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_coeiroink_version(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
+    commands::get_coeiroink_version::get_coeiroink_version(app_handle)
         .await
         .map_err(|e| e.to_string())
 }
@@ -21,8 +30,12 @@ pub fn run() {
 
     info!("Starting tauri application");
     tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![check_version])
+        .invoke_handler(tauri::generate_handler![
+            check_latest_version,
+            get_coeiroink_version
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

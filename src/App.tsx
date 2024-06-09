@@ -24,6 +24,7 @@ const App: React.FC = () => {
             MyCoeを管理する
           </button>
         </header>
+        <div className="h-2" />
         {view === "coeiroinkManager" ? (
           <CoeiroinkManager />
         ) : (

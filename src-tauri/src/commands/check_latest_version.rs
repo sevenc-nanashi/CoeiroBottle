@@ -3,13 +3,13 @@ use lazy_regex::regex;
 use serde::Serialize;
 use tracing::{error, info};
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct CheckVersionResult {
     coeiroink: Option<String>,
     coeirobottle: Option<String>,
 }
 
-pub async fn check_version() -> Result<CheckVersionResult> {
+pub async fn check_latest_version() -> Result<CheckVersionResult> {
     let coeiroink = fetch_latest_coeiroink_version()
         .await
         .inspect_err(|e| {

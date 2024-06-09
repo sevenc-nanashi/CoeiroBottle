@@ -20,9 +20,5 @@ body {
 
   &.active {
     @apply nm-inset-coeiroink;
-
-    &:hover {
-      @apply nm-inset-coeiroink-sm;
-    }
   }
 }
