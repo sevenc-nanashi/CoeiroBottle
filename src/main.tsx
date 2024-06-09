@@ -5,7 +5,7 @@ import "./index.scss";
 import "ui-neumorphism/dist/index.css";
 
 ReactDOM.createRoot(document.getElementById("app")!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+	<React.StrictMode>
+		<App />
+	</React.StrictMode>,
 );
