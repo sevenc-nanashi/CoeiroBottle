@@ -1,15 +1,21 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.8.0/schema.json",
-	"files": {
-		"ignore": ["./src-tauri/gen", "./src-tauri/target"]
-	},
-	"organizeImports": {
-		"enabled": true
-	},
-	"linter": {
-		"enabled": true,
-		"rules": {
-			"recommended": true
-		}
-	}
+  "$schema": "https://biomejs.dev/schemas/1.8.0/schema.json",
+  "files": {
+    "ignore": ["./src-tauri/gen", "./src-tauri/target"]
+  },
+  "organizeImports": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noNonNullAssertion": "off"
+      },
+      "nursery": {
+        "useImportExtensions": "error"
+      }
+    }
+  }
 }

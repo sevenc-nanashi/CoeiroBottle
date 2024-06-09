@@ -1,2 +1,3 @@
-pub mod check_latest_version;
+pub mod fetch_latest_version;
 pub mod get_coeiroink_version;
+pub mod install_coeiroink;

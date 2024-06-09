@@ -3,10 +3,16 @@
 @tailwind utilities;
 
 body {
-  @apply bg-coeiroink;
+  @apply bg-coeiroink text-slate-900;
 }
-*:not(#hack-for-higher-priority) {
-  font-family: "Kiwi Maru", sans-serif;
+* {
+  &:not(#hack-for-higher-priority) {
+    font-family: "Kiwi Maru", sans-serif;
+  }
+}
+
+h1 {
+  @apply text-xl font-bold pb-1 border-b border-accent mb-1;
 }
 
 .button {
@@ -17,8 +23,49 @@ body {
   &:hover {
     @apply nm-flat-coeiroink-sm;
   }
+  &:active {
+    @apply nm-inset-coeiroink;
+  }
+
+  &:disabled {
+    @apply nm-flat-coeiroink-sm cursor-not-allowed text-slate-900/50;
+
+    &.active {
+      @apply nm-inset-coeiroink-sm;
+    }
+  }
 
   &.active {
     @apply nm-inset-coeiroink;
+  }
+}
+
+.input[type="text"] {
+  @apply nm-inset-coeiroink-sm text-slate-900 rounded-md p-2;
+
+  &:focus {
+    @apply outline-2 outline-accent;
+  }
+}
+
+.tooltip-content {
+  @apply nm-flat-white text-xs text-slate-900 rounded-md p-1;
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+
+  &[data-side="bottom"] {
+    animation-name: slideDown;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

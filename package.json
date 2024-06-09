@@ -1,37 +1,43 @@
 {
-	"name": "tauri-app",
-	"private": true,
-	"version": "0.0.0",
-	"type": "module",
-	"scripts": {
-		"dev": "vite",
-		"build": "vue-tsc --noEmit && vite build",
-		"preview": "vite preview",
-		"tauri": "tauri",
-		"lint": "biome check",
-		"format": "biome format --write"
-	},
-	"dependencies": {
-		"@qvant/qui-max": "^0.19.0",
-		"@tauri-apps/api": "next",
-		"react": "^18.3.1",
-		"react-dom": "^18.3.1"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "1.8.0",
-		"@tauri-apps/cli": "next",
-		"@types/react": "^18.3.3",
-		"@types/react-dom": "^18.3.0",
-		"@vitejs/plugin-react-swc": "^3.7.0",
-		"autoprefixer": "^10.4.19",
-		"clsx": "^2.1.1",
-		"npm-run-all2": "^6.2.0",
-		"postcss": "^8.4.38",
-		"sass": "^1.77.4",
-		"tailwindcss": "^3.4.4",
-		"tw-neumorphism": "^0.2.0",
-		"typescript": "^5.0.2",
-		"unplugin-fonts": "^1.1.1",
-		"vite": "^5.0.0"
-	}
+  "name": "tauri-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "lint": "biome check",
+    "format": "biome format --write"
+  },
+  "dependencies": {
+    "@oxi/result": "npm:@jsr/oxi__result",
+    "@qvant/qui-max": "^0.19.0",
+    "@radix-ui/react-tooltip": "^1.0.7",
+    "@tauri-apps/api": "next",
+    "jotai": "^2.8.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "semver": "^7.6.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.8.0",
+    "@tauri-apps/cli": "next",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/semver": "^7.5.8",
+    "@vitejs/plugin-react-swc": "^3.7.0",
+    "autoprefixer": "^10.4.19",
+    "clsx": "^2.1.1",
+    "npm-run-all2": "^6.2.0",
+    "postcss": "^8.4.38",
+    "sass": "^1.77.4",
+    "tailwindcss": "^3.4.4",
+    "tw-neumorphism": "^0.2.0",
+    "typescript": "^5.0.2",
+    "unplugin-fonts": "^1.1.1",
+    "vite": "^5.0.0",
+    "vite-tsconfig-paths": "^4.3.2"
+  }
 }

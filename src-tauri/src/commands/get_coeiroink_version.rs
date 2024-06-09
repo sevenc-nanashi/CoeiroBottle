@@ -29,21 +29,22 @@ fn get_version(exe_path: std::path::PathBuf) -> Result<Option<String>> {
         }
 
         let version = std::slice::from_raw_parts(version_ptr as *const u16, len as usize);
-        let version = String::from_utf16_lossy(version).trim_end_matches('\0').to_string();
+        let version = String::from_utf16_lossy(version)
+            .trim_end_matches('\0')
+            .to_string();
         Ok(Some(version))
     }
 }
 
 pub async fn get_coeiroink_version(app_handle: tauri::AppHandle) -> Result<Option<String>> {
     let store = tauri_plugin_store::StoreBuilder::new("store.json").build(app_handle.clone());
+    info!("Getting coeiroink version");
 
     let coeiroink_root = store.get("coeiroink_root");
-    // let Some(coeiroink_root) = coeiroink_root.map(|v| v.as_str()).flatten() else {
-    //     info!("No coeiroink_root found in store, returning None");
-    //     return Ok(None);
-    // };
-
-    let coeiroink_root = "E:/voicevox/coeiroink-v2";
+    let Some(coeiroink_root) = coeiroink_root.map(|v| v.as_str()).flatten() else {
+        info!("No coeiroink_root found in store, returning None");
+        return Ok(None);
+    };
 
     let coeiroink_root = std::path::Path::new(coeiroink_root);
 
@@ -51,5 +52,6 @@ pub async fn get_coeiroink_version(app_handle: tauri::AppHandle) -> Result<Optio
 
     let version = get_version(coeiroink_v2_exe)?;
 
+    info!("coeiroink version: {:?}", version);
     Ok(version)
 }
