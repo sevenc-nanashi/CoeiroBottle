@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { version } from "../package.json" assert { type: "json" };
-import CoeiroinkManager from "./views/CoeiroinkManager";
+import packageJson from "../package.json" assert { type: "json" };
+import CoeiroinkManager from "./views/CoeiroinkManager.tsx";
 import clsx from "clsx";
 import { Result } from "@oxi/result";
 import { invoke } from "@tauri-apps/api/core";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { useAtom } from "jotai";
-import { navigatorLockedAtom } from "./state";
+import { navigatorLockedAtom } from "./state.ts";
+
+const { version } = packageJson;
 
 const App: React.FC = () => {
 	const [view, setView] = useState("coeiroinkManager");
@@ -14,6 +16,7 @@ const App: React.FC = () => {
 
 	const [isCoeiroinkInstalled, setIsCoeiroinkInstalled] =
 		useState<boolean>(false);
+
 	useEffect(() => {
 		const checkIfInstalled = async () => {
 			setIsCoeiroinkInstalled(
@@ -52,7 +55,7 @@ const App: React.FC = () => {
 								MyCoeを管理する
 							</button>
 						</Tooltip.Trigger>
-						{navigatorLocked || (
+						{!navigatorLocked && !isCoeiroinkInstalled && (
 							<Tooltip.Content
 								sideOffset={5}
 								side="top"

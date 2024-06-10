@@ -37,10 +37,12 @@ fn get_version(exe_path: std::path::PathBuf) -> Result<Option<String>> {
 }
 
 pub async fn get_coeiroink_version(app_handle: tauri::AppHandle) -> Result<Option<String>> {
-    let store = tauri_plugin_store::StoreBuilder::new("store.json").build(app_handle.clone());
+    let mut store = tauri_plugin_store::StoreBuilder::new("store.json").build(app_handle.clone());
+    let _ = store.load();
     info!("Getting coeiroink version");
 
     let coeiroink_root = store.get("coeiroink_root");
+
     let Some(coeiroink_root) = coeiroink_root.map(|v| v.as_str()).flatten() else {
         info!("No coeiroink_root found in store, returning None");
         return Ok(None);

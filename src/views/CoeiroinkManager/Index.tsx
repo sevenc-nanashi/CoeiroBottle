@@ -1,14 +1,20 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Result } from "@oxi/result";
 import semver from "semver";
+import { Store } from "@/store.ts";
 
 const Index: React.FC<{
 	installCoeiroink: ({
 		edition,
 		version,
-	}: { edition: "cpu" | "gpu"; version: string }) => void;
+	}: {
+		edition: "cpu" | "gpu";
+		version: string;
+	}) => void;
 }> = (props) => {
+	const store = useContext(Store);
+
 	const [coeiroinkVersion, setCoeiroinkVersion] = useState<Result<
 		string | null,
 		string
@@ -76,6 +82,23 @@ const Index: React.FC<{
 		return "latest";
 	})();
 
+	const [coeiroinkPath, setCoeiroinkPath] = useState<string>("");
+
+	useEffect(() => {
+		const getCoeiroinkPath = async () => {
+			await store.load();
+			const path = await store.get<string>("coeiroink_root");
+
+			setCoeiroinkPath(path ?? "");
+		};
+
+		getCoeiroinkPath();
+	}, [store]);
+
+	if (!coeiroinkVersion || !latestVersion) {
+		return <div className="grid place-items-center">読み込み中...</div>;
+	}
+
 	return (
 		<div className="flex flex-col gap-4">
 			<p>
@@ -141,7 +164,12 @@ const Index: React.FC<{
 						この設定を変更してもCoeiroink自体は移動しません。
 					</p>
 				)}
-				<input type="text" className="input" />
+				<input
+					type="text"
+					value={coeiroinkPath}
+					onChange={(e) => setCoeiroinkPath(e.target.value)}
+					className="input"
+				/>
 				<button type="button" className="button">
 					確定
 				</button>

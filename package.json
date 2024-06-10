@@ -16,6 +16,7 @@
     "@qvant/qui-max": "^0.19.0",
     "@radix-ui/react-tooltip": "^1.0.7",
     "@tauri-apps/api": "next",
+    "@tauri-apps/plugin-store": "^2.0.0-beta.5",
     "jotai": "^2.8.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

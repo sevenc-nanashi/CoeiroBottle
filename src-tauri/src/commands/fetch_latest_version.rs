@@ -1,5 +1,4 @@
 use anyhow::Result;
-use lazy_regex::regex;
 use serde::Serialize;
 use tracing::{error, info};
 

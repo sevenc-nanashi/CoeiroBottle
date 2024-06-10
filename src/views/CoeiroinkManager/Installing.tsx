@@ -19,6 +19,9 @@ type InstallProgress =
 	  }
 	| {
 			type: "Installing";
+			progress: number;
+			total: number;
+			current: string;
 	  }
 	| {
 			type: "Configuring";
@@ -45,6 +48,8 @@ const Installing: React.FC<{ edition: "cpu" | "gpu"; version: string }> = ({
 }) => {
 	const invokedInstall = useRef(false);
 
+	const errorRef = useRef<string | null>(null);
+	const [status, setStatus] = useState<"working" | "done" | "error">("working");
 	const unlistenRef = useRef<(() => void) | null>(null);
 	const [installProgress, setInstallProgress] = useState<InstallProgress>({
 		type: "Initializing",
@@ -52,16 +57,21 @@ const Installing: React.FC<{ edition: "cpu" | "gpu"; version: string }> = ({
 
 	useEffect(() => {
 		if (!invokedInstall.current) {
+			setStatus("working");
 			invokedInstall.current = true;
 
 			listen<InstallProgress>("installing_coeiroink", (data) => {
 				setInstallProgress(data.payload);
+				if (data.payload.type === "Done") {
+					setStatus("done");
+				}
 			}).then((unlisten) => {
 				unlistenRef.current = unlisten;
 			});
 
 			invoke("install_coeiroink", { edition }).catch((e) => {
-				console.error(e);
+				errorRef.current = String(e);
+				setStatus("error");
 			});
 		}
 
@@ -97,12 +107,53 @@ const Installing: React.FC<{ edition: "cpu" | "gpu"; version: string }> = ({
 				<li className={getClasses(2)}>
 					解凍
 					{installProgress.type === "Extracting" &&
-						`（${installProgress.progress} / ${installProgress.total}MiB）`}
+						`（${installProgress.progress} / ${installProgress.total}）`}
 				</li>
-				<li className={getClasses(3)}>インストール</li>
+				<li className={getClasses(3)}>
+					インストール
+					{installProgress.type === "Installing" && (
+						<>
+							（{installProgress.progress} / {installProgress.total || "？"}）
+							<br />
+							<span className="text-sm">{installProgress.current}</span>
+						</>
+					)}
+				</li>
 				<li className={getClasses(4)}>設定</li>
 				<li className={getClasses(5)}>完了</li>
 			</ul>
+
+			{status === "working" && (
+				<p>
+					インストールには時間がかかります。お茶でも飲んでゆっくり待ちましょう。
+				</p>
+			)}
+			{status === "error" && (
+				<div className="pt-4">
+					<p className="text-accent">
+						エラーが発生しました：{errorRef.current}
+					</p>
+					<button
+						type="button"
+						onClick={() => window.location.reload()}
+						className="button"
+					>
+						戻る
+					</button>
+				</div>
+			)}
+			{status === "done" && (
+				<div className="pt-4">
+					<p>インストールが完了しました。</p>
+					<button
+						type="button"
+						onClick={() => window.location.reload()}
+						className="button"
+					>
+						戻る
+					</button>
+				</div>
+			)}
 		</div>
 	);
 };
