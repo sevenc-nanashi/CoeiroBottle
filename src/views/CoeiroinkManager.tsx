@@ -3,34 +3,51 @@ import Index from "./CoeiroinkManager/Index.tsx";
 import { useAtom } from "jotai";
 import { navigatorLockedAtom } from "@/state.ts";
 import Installing from "./CoeiroinkManager/Installing.tsx";
+import Configure from "./CoeiroinkManager/Configure.tsx";
+
+export type InstallContext = {
+	edition: "cpu" | "gpu";
+	version: string;
+	path: string;
+	desktopShortcut: boolean;
+	startMenuShortcut: boolean;
+};
 
 const CoeiroinkManager: React.FC = () => {
-	const [view, setView] = useState<"index" | "installing" | "installed">(
+	const [view, setView] = useState<"index" | "configure" | "installing">(
 		"index",
 	);
-	const installContext = useRef<{
-		edition: "cpu" | "gpu";
-		version: string;
-	} | null>(null);
+	const installContext = useRef<InstallContext>({
+		edition: "cpu",
+		version: "0.0.0",
+		path: "",
+		desktopShortcut: true,
+		startMenuShortcut: true,
+	});
 	const [_navigatorLocked, setNavigatorLocked] = useAtom(navigatorLockedAtom);
-	const installCoeiroink = ({
-		edition,
-		version,
-	}: { edition: "cpu" | "gpu"; version: string }) => {
+	const configureCoeiroink = () => {
 		setNavigatorLocked(true);
-		installContext.current = { edition, version };
+		setView("configure");
+	};
+	const installCoeiroink = (context: InstallContext) => {
+		installContext.current = context;
 		setView("installing");
 	};
-	return view === "installing" ? (
-		installContext.current && (
-			<Installing
-				edition={installContext.current.edition}
-				version={installContext.current.version}
+	if (view === "configure") {
+		return (
+			<Configure
+				install={installCoeiroink}
+				cancel={() => {
+					setNavigatorLocked(false);
+					setView("index");
+				}}
 			/>
-		)
-	) : (
-		<Index installCoeiroink={installCoeiroink} />
-	);
+		);
+	}
+	if (view === "installing") {
+		return <Installing context={installContext.current} />;
+	}
+	return <Index configureCoeiroinkInstall={configureCoeiroink} />;
 };
 
 export default CoeiroinkManager;

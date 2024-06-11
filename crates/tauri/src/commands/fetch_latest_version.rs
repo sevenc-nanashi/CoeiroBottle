@@ -28,7 +28,7 @@ pub async fn fetch_latest_version() -> Result<CheckVersionResult> {
     })
 }
 
-pub async fn fetch_latest_coeiroink_version() -> Result<String> {
+async fn fetch_latest_coeiroink_version() -> Result<String> {
     let downloads = crate::coeiroink_scraping::fetch_downloads().await?;
 
     info!("Found coeiroink version: {}", downloads[0].version);
@@ -36,7 +36,7 @@ pub async fn fetch_latest_coeiroink_version() -> Result<String> {
     Ok(downloads[0].version.clone())
 }
 
-pub async fn fetch_latest_coeirobottle_version() -> Result<String> {
+async fn fetch_latest_coeirobottle_version() -> Result<String> {
     // TODO: implement
     Ok("0.0.0".to_string())
 }

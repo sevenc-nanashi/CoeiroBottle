@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
+import type { InstallContext } from "../CoeiroinkManager.tsx";
 
 type InstallProgress =
 	| {
@@ -42,10 +43,7 @@ const typeToLevel = (type: InstallProgress["type"]) =>
 
 const toMib = (bytes: number) => (bytes / 1024 / 1024).toFixed(2);
 
-const Installing: React.FC<{ edition: "cpu" | "gpu"; version: string }> = ({
-	edition,
-	version,
-}) => {
+const Installing: React.FC<{ context: InstallContext }> = ({ context }) => {
 	const invokedInstall = useRef(false);
 
 	const errorRef = useRef<string | null>(null);
@@ -69,7 +67,7 @@ const Installing: React.FC<{ edition: "cpu" | "gpu"; version: string }> = ({
 				unlistenRef.current = unlisten;
 			});
 
-			invoke("install_coeiroink", { edition }).catch((e) => {
+			invoke("install_coeiroink", { params: context }).catch((e) => {
 				errorRef.current = String(e);
 				setStatus("error");
 			});
@@ -78,7 +76,7 @@ const Installing: React.FC<{ edition: "cpu" | "gpu"; version: string }> = ({
 		return () => {
 			unlistenRef.current?.();
 		};
-	}, [edition]);
+	}, [context]);
 
 	const progressLevel = typeToLevel(installProgress.type);
 
@@ -89,14 +87,20 @@ const Installing: React.FC<{ edition: "cpu" | "gpu"; version: string }> = ({
 			level === progressLevel && "text-accent",
 		);
 
+	const cancel = () => {
+		invoke("cancel_install_coeiroink");
+	};
+
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-col gap-4 h-full">
 			<h1>インストール中...</h1>
 			<p>
-				バージョン：v{version}（{edition === "cpu" ? "CPU" : "GPU"}）
+				バージョン：v{context.version}（
+				{context.edition === "cpu" ? "CPU" : "GPU"}）<br />
+				インストール先：{context.path}
 			</p>
 			<ul>
-				<li className={getClasses(0)}>初期化</li>
+				<li className={getClasses(0)}>準備</li>
 				<li className={getClasses(1)}>
 					ダウンロード
 					{installProgress.type === "Downloading" &&
@@ -109,13 +113,15 @@ const Installing: React.FC<{ edition: "cpu" | "gpu"; version: string }> = ({
 					{installProgress.type === "Extracting" &&
 						`（${installProgress.progress} / ${installProgress.total}）`}
 				</li>
-				<li className={getClasses(3)}>
+				<li className={clsx(getClasses(3), "relative")}>
 					インストール
 					{installProgress.type === "Installing" && (
 						<>
 							（{installProgress.progress} / {installProgress.total || "？"}）
 							<br />
-							<span className="text-sm">{installProgress.current}</span>
+							<p className="h-8 break-all text-ellipsis overflow-hidden text-xs">
+								{installProgress.current}
+							</p>
 						</>
 					)}
 				</li>
@@ -123,37 +129,48 @@ const Installing: React.FC<{ edition: "cpu" | "gpu"; version: string }> = ({
 				<li className={getClasses(5)}>完了</li>
 			</ul>
 
-			{status === "working" && (
-				<p>
-					インストールには時間がかかります。お茶でも飲んでゆっくり待ちましょう。
-				</p>
-			)}
-			{status === "error" && (
-				<div className="pt-4">
-					<p className="text-accent">
-						エラーが発生しました：{errorRef.current}
-					</p>
-					<button
-						type="button"
-						onClick={() => window.location.reload()}
-						className="button"
-					>
-						戻る
-					</button>
-				</div>
-			)}
-			{status === "done" && (
-				<div className="pt-4">
-					<p>インストールが完了しました。</p>
-					<button
-						type="button"
-						onClick={() => window.location.reload()}
-						className="button"
-					>
-						戻る
-					</button>
-				</div>
-			)}
+			<div className="flex-grow" />
+
+			<div className="pt-4 flex flex-col gap-2">
+				{status === "working" && (
+					<>
+						<p>
+							インストールには時間がかかります。お茶でも飲んでゆっくり待ちましょう。
+						</p>
+						<button type="button" onClick={cancel} className="button w-full">
+							キャンセル
+						</button>
+					</>
+				)}
+				{status === "error" && (
+					<>
+						<p className="text-accent w-full">
+							エラーが発生しました：
+							<br />
+							<span className="text-xs">{errorRef.current}</span>
+						</p>
+						<button
+							type="button"
+							onClick={() => window.location.reload()}
+							className="button w-full"
+						>
+							戻る
+						</button>
+					</>
+				)}
+				{status === "done" && (
+					<>
+						<p>インストールが完了しました。</p>
+						<button
+							type="button"
+							onClick={() => window.location.reload()}
+							className="button w-full"
+						>
+							戻る
+						</button>
+					</>
+				)}
+			</div>
 		</div>
 	);
 };

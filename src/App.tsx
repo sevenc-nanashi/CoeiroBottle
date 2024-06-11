@@ -22,7 +22,7 @@ const App: React.FC = () => {
 			setIsCoeiroinkInstalled(
 				(
 					await Result.from(() =>
-						invoke<string | null>("get_coeiroink_version"),
+						invoke<unknown | null>("get_coeiroink_version"),
 					)
 				).mapOr(false, (v) => !!v),
 			);

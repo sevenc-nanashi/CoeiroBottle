@@ -1,6 +1,8 @@
+use crate::coeiroink_scraping::Edition;
 use anyhow::Result;
 use futures_util::StreamExt;
 use lazy_regex::regex;
+use path_dedot::ParseDot as _;
 use tauri::Manager;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio_util::compat::TokioAsyncWriteCompatExt;
@@ -22,7 +24,7 @@ enum DownloadProgress {
     Installing {
         progress: u64,
         total: u64,
-        current: Option<String>,
+        current: String,
     },
     Configuring,
     Done,
@@ -70,8 +72,9 @@ async fn extract_bootstrap(
     app_handle: tauri::AppHandle,
     zip: async_zip::tokio::read::fs::ZipFileReader,
 ) -> Result<tempfile::TempDir> {
-    let extract_dir = tempfile::tempdir()?;
     let total_entries = zip.file().entries().len() as u64;
+
+    let extract_dir = tempfile::tempdir()?;
 
     app_handle.emit(
         "installing_coeiroink",
@@ -128,7 +131,10 @@ async fn find_first_7z(extract_dir: &tempfile::TempDir) -> Result<std::path::Pat
     Ok(first_7z)
 }
 
-async fn list_files(first_7z: &std::path::Path) -> Result<Vec<String>> {
+async fn list_files(
+    first_7z: &std::path::Path,
+    exclude_speaker_infos: bool,
+) -> Result<Vec<String>> {
     info!("Listing files in 7z");
     let files = tokio::process::Command::new(assets::sevenzip_path())
         .arg("l")
@@ -153,6 +159,16 @@ async fn list_files(first_7z: &std::path::Path) -> Result<Vec<String>> {
             let parts = spaces.splitn(line, 6).collect::<Vec<_>>();
             parts[parts.len() - 1].to_owned()
         })
+        .filter(|file| {
+            if file.contains("__pycache__") {
+                return false;
+            }
+            if exclude_speaker_infos && file.contains("speaker_info") {
+                return false;
+            }
+
+            true
+        })
         .collect::<Vec<_>>();
     info!("Found {} files in 7z", files.len());
 
@@ -161,9 +177,10 @@ async fn list_files(first_7z: &std::path::Path) -> Result<Vec<String>> {
 
 async fn extract_7z(
     app_handle: tauri::AppHandle,
-    first_7z: std::path::PathBuf,
-    extracted_dir: &std::path::Path,
+    first_7z: &std::path::Path,
+    temporary_extract_dir: &std::path::Path,
     files: &[String],
+    exclude_speaker_infos: bool,
 ) -> Result<()> {
     info!("Extracting 7z");
     app_handle.emit(
@@ -171,15 +188,21 @@ async fn extract_7z(
         DownloadProgress::Installing {
             progress: 0,
             total: files.len() as u64,
-            current: Some(files[0].clone()),
+            current: files[0].clone(),
         },
     )?;
 
     let mut extract_process = tokio::process::Command::new(assets::sevenzip_path())
         .arg("x")
-        .arg(format!("-o{}", extracted_dir.to_string_lossy()))
+        .arg(format!("-o{}", temporary_extract_dir.to_string_lossy()))
         .arg("-y")
         .arg("-bb3")
+        .arg("-xr!__pycache__")
+        .args(if exclude_speaker_infos {
+            vec!["-xr!speaker_info"]
+        } else {
+            vec![]
+        })
         .arg(&first_7z)
         .stdout(std::process::Stdio::piped())
         .spawn()?;
@@ -196,7 +219,7 @@ async fn extract_7z(
                 DownloadProgress::Installing {
                     progress: extracted_files,
                     total: files.len() as u64,
-                    current: files.get(extracted_files as usize).cloned(),
+                    current: line[2..].trim().to_owned(),
                 },
             )?;
         }
@@ -211,10 +234,11 @@ async fn extract_7z(
 }
 
 async fn move_coeiroink(
-    extracted_dir: &std::path::Path,
+    temporary_extract_dir: &std::path::Path,
     install_dir: &std::path::Path,
+    exclude_speaker_infos: bool,
 ) -> Result<()> {
-    let actual_extracted_dir = fs_err::tokio::read_dir(&extracted_dir)
+    let actual_extracted_dir = fs_err::tokio::read_dir(&temporary_extract_dir)
         .await?
         .next_entry()
         .await?;
@@ -229,32 +253,51 @@ async fn move_coeiroink(
     );
 
     if install_dir.exists() {
-        info!("Removing existing install dir");
-        fs_err::tokio::remove_dir_all(&install_dir).await?;
+        info!("Removing existing install dir, except speaker_info");
+        let mut files = fs_err::tokio::read_dir(&install_dir).await?;
+        while let Some(entry) = files.next_entry().await? {
+            if entry.file_name() == "speaker_info" {
+                continue;
+            }
+            info!("Removing {:?}", entry.path());
+            if entry.file_type().await?.is_dir() {
+                fs_err::tokio::remove_dir_all(entry.path()).await?;
+            } else {
+                fs_err::tokio::remove_file(entry.path()).await?;
+            }
+        }
     }
     fs_err::tokio::create_dir_all(&install_dir).await?;
 
     let mut file_paths: Vec<std::path::PathBuf> = vec![];
     let mut files = fs_err::tokio::read_dir(&actual_extracted_dir).await?;
     while let Some(entry) = files.next_entry().await? {
+        if exclude_speaker_infos
+            && entry.file_type().await?.is_dir()
+            && entry.file_name() == "speaker_info"
+        {
+            continue;
+        }
         file_paths.push(entry.path());
     }
     info!("Moving {} files", file_paths.len());
 
     let install_dir = install_dir.to_owned();
-    tokio::task::spawn_blocking(move || {
-        let file_paths = file_paths;
-        let install_dir = install_dir;
-        fs_extra::move_items(
-            &file_paths,
-            &install_dir,
-            &fs_extra::dir::CopyOptions {
-                overwrite: true,
-                ..Default::default()
-            },
-        )
-    })
-    .await??;
+    for file_path in file_paths {
+        let file_name = file_path.file_name().unwrap();
+        let install_path = install_dir.join(file_name);
+        if install_path.exists() {
+            if install_path.is_dir() {
+                fs_err::tokio::remove_dir_all(&install_path).await?;
+            } else {
+                fs_err::tokio::remove_file(&install_path).await?;
+            }
+        }
+
+        info!("Moving {:?} -> {:?}", &file_path, &install_path);
+
+        fs_err::tokio::rename(&file_path, &install_path).await?;
+    }
 
     Ok(())
 }
@@ -282,18 +325,11 @@ impl Drop for Com {
     }
 }
 
-async fn setup_shortcuts(install_dir: &std::path::Path) -> Result<()> {
+async fn create_shortcut(install_dir: &std::path::Path, path: &std::path::Path) -> Result<()> {
     info!("Setting up shortcuts");
     let _com = Com::new()?;
 
-    let start_menu_dir = std::path::PathBuf::from(std::env::var("APPDATA").unwrap())
-        .join("Microsoft")
-        .join("Windows")
-        .join("Start Menu")
-        .join("Programs")
-        .join("Coeiroink v2");
-
-    fs_err::tokio::create_dir_all(&start_menu_dir).await?;
+    fs_err::tokio::create_dir_all(&path.parent().unwrap()).await?;
 
     let coeiroink_exe = install_dir.join("COEIROINKv2.exe");
 
@@ -316,8 +352,7 @@ async fn setup_shortcuts(install_dir: &std::path::Path) -> Result<()> {
 
         shell_link.SetWorkingDirectory(&exe_parent)?;
 
-        let lnk_path = start_menu_dir.join("Coeiroink v2.lnk");
-        let lnk_path = windows::core::HSTRING::from(lnk_path.as_os_str());
+        let lnk_path = windows::core::HSTRING::from(path.as_os_str());
 
         shell_link
             .cast::<windows::Win32::System::Com::IPersistFile>()?
@@ -327,16 +362,51 @@ async fn setup_shortcuts(install_dir: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-pub async fn install_coeiroink(app_handle: tauri::AppHandle, edition: String) -> Result<()> {
-    let edition: crate::coeiroink_scraping::Edition = edition
-        .parse()
-        .map_err(|e| anyhow::anyhow!("Failed to parse edition: {:?}", e))?;
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallParams {
+    pub edition: Edition,
+    pub version: String,
+    pub path: String,
+    pub desktop_shortcut: bool,
+    pub start_menu_shortcut: bool,
+}
+
+pub async fn install_coeiroink(app_handle: tauri::AppHandle, params: InstallParams) -> Result<()> {
+    info!("Installing coeiroink");
+    let edition = params.edition;
+    let version = params.version;
+    let path = params.path;
+
+    let install_dir = std::path::PathBuf::from(path);
+    let install_dir = install_dir.parse_dot()?;
+
+    let temporary_extract_dir = if cfg!(windows) {
+        let install_dir_drive = install_dir
+            .to_string_lossy()
+            .chars()
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Could not get drive letter"))?;
+
+        tempfile::Builder::new()
+            .prefix("coeirobottle_temporary_directory_")
+            .tempdir_in(format!("{}:\\", install_dir_drive))?
+    } else {
+        panic!("Unsupported platform");
+    };
+
+    info!("Install dir: {:?}", install_dir);
+    info!("Temporary extract dir: {:?}", temporary_extract_dir.path());
+    let exclude_speaker_infos = install_dir.join("speaker_info").exists();
+    info!("Speaker infos exist?: {}", exclude_speaker_infos);
 
     info!("Fetching downloads");
     app_handle.emit("installing_coeiroink", DownloadProgress::Initializing)?;
     let downloads = crate::coeiroink_scraping::fetch_downloads().await?;
 
-    let download_item = downloads.iter().find(|d| d.edition == edition);
+    let download_item = downloads
+        .iter()
+        .find(|d| d.edition == edition && d.version == version);
 
     let download_item = match download_item {
         Some(download) => download,
@@ -351,32 +421,58 @@ pub async fn install_coeiroink(app_handle: tauri::AppHandle, edition: String) ->
     let zip_file = download(app_handle.clone(), &download_item.link).await?;
     let zip = async_zip::tokio::read::fs::ZipFileReader::new(&zip_file.file_path()).await?;
 
-    let extract_dir = extract_bootstrap(app_handle.clone(), zip).await?;
+    let bootstrap_dir = extract_bootstrap(app_handle.clone(), zip).await?;
 
-    let first_7z = find_first_7z(&extract_dir).await?;
+    let first_7z = find_first_7z(&bootstrap_dir).await?;
 
-    let files = list_files(&first_7z).await?;
+    let files = list_files(&first_7z, exclude_speaker_infos).await?;
 
-    let extracted_dir = extract_dir.into_path().join("extracted");
-    extract_7z(app_handle.clone(), first_7z, &extracted_dir, &files).await?;
+    extract_7z(
+        app_handle.clone(),
+        &first_7z,
+        temporary_extract_dir.path(),
+        &files,
+        exclude_speaker_infos,
+    )
+    .await?;
 
     app_handle.emit("installing_coeiroink", DownloadProgress::Configuring)?;
 
-    let install_dir = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap())
-        .join("Programs")
-        .join("coeiroink");
+    move_coeiroink(
+        temporary_extract_dir.path(),
+        &install_dir,
+        exclude_speaker_infos,
+    )
+    .await?;
+    if params.desktop_shortcut {
+        let desktop = std::path::PathBuf::from(std::env::var("USERPROFILE").unwrap())
+            .join("Desktop")
+            .join("Coeiroink v2.lnk");
 
-    move_coeiroink(&extracted_dir, &install_dir).await?;
-    setup_shortcuts(&install_dir).await?;
+        create_shortcut(&install_dir, &desktop).await?;
+    }
+    if params.start_menu_shortcut {
+        let start_menu = std::path::PathBuf::from(std::env::var("APPDATA").unwrap())
+            .join("Microsoft")
+            .join("Windows")
+            .join("Start Menu")
+            .join("Programs")
+            .join("Coeiroink v2.lnk");
+
+        create_shortcut(&install_dir, &start_menu).await?;
+    }
 
     let mut store = tauri_plugin_store::StoreBuilder::new("store.json").build(app_handle.clone());
 
-    store.insert(
-        "coeiroink_root".into(),
-        install_dir.to_string_lossy().to_string().into(),
-    )?;
+    // is latest version
+    if downloads[0].version == version {
+        store.insert(
+            "coeiroink_root".into(),
+            install_dir.to_string_lossy().to_string().into(),
+        )?;
 
-    store.save()?;
+        store.save()?;
+    }
 
     info!("Installed coeiroink");
 
