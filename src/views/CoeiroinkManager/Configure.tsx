@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef, useContext } from "react";
 import type { InstallContext } from "../CoeiroinkManager.tsx";
 import { invoke } from "@tauri-apps/api/core";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import * as Select from "@radix-ui/react-select";
 import * as Checkbox from "@radix-ui/react-checkbox";
 import { CheckIcon, ChevronDownIcon } from "@radix-ui/react-icons";
 import path from "path-browserify";
 import { Store } from "@/store.ts";
+import { useDebounce } from "react-use";
+import clsx from "clsx";
 
 type DownloadInfo = {
 	edition: "cpu" | "gpu";
@@ -93,6 +96,36 @@ const Configure: React.FC<{
 		})();
 	}, [coeiroinkToInstall, coeiroinkVersions, store]);
 
+	const [isSafe, setIsSafe] = useState(false);
+	const [checkedIsSafe, setCheckedIsSafe] = useState(false);
+
+	const browseInstallPath = async () => {
+		const result = await openDialog({
+			directory: true,
+		});
+		setCheckedIsSafe(false);
+
+		if (result) {
+			setInstallPath(result);
+		}
+	};
+
+	useDebounce(
+		() => {
+			(async () => {
+				const isSafe = await invoke<boolean>("is_safe_to_install", {
+					path: installPath,
+				});
+				return isSafe;
+			})().then((result) => {
+				setCheckedIsSafe(true);
+				setIsSafe(result);
+			});
+		},
+		1000,
+		[installPath],
+	);
+
 	const submit = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!coeiroinkToInstall) return;
@@ -148,20 +181,36 @@ const Configure: React.FC<{
 			<section className="flex flex-col gap-2">
 				<h2>インストール先</h2>
 				<p>インストール先を指定します。</p>
-				<input
-					type="text"
-					className="input"
-					value={installPath}
-					onChange={(e) => setInstallPath(e.target.value)}
-					onBlur={(e) => {
-						if (
-							e.target.value === "" ||
-							!e.target.value.match(/^[a-zA-Z]:[\\/]/)
-						) {
-							setInstallPath(`${defaultInstallPathRoot.current}/coeiroink-v2`);
-						}
-					}}
-				/>
+				<div className="flex flex-row gap-2 w-full">
+					<input
+						type="text"
+						className="input flex-grow"
+						value={installPath}
+						onChange={(e) => setInstallPath(e.target.value)}
+						onBlur={(e) => {
+							if (
+								e.target.value === "" ||
+								!e.target.value.match(/^[a-zA-Z]:[\\/]/)
+							) {
+								setInstallPath(
+									`${defaultInstallPathRoot.current}/coeiroink-v2`,
+								);
+							}
+						}}
+					/>
+					<button type="button" className="button" onClick={browseInstallPath}>
+						参照
+					</button>
+				</div>
+				<p
+					className={clsx("text-xs", checkedIsSafe && !isSafe && "text-accent")}
+				>
+					{checkedIsSafe
+						? isSafe
+							? "このフォルダはインストール可能です。"
+							: "このフォルダには他のファイルが存在します。"
+						: "フォルダを確認中..."}
+				</p>
 			</section>
 			<section className="flex flex-col gap-2">
 				<h2>ショートカット</h2>
@@ -207,7 +256,11 @@ const Configure: React.FC<{
 					キャンセル
 				</button>
 
-				<button type="submit" className="button" disabled={!coeiroinkToInstall}>
+				<button
+					type="submit"
+					className="button"
+					disabled={!(coeiroinkToInstall && checkedIsSafe && isSafe)}
+				>
 					インストール
 				</button>
 			</section>

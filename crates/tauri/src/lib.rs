@@ -6,20 +6,27 @@ mod commands;
 
 use coeiroink_scraping::DownloadInfo;
 use tracing::info;
+use tracing::warn;
 
 #[tauri::command]
 async fn fetch_latest_version() -> Result<commands::fetch_latest_version::CheckVersionResult, String>
 {
     commands::fetch_latest_version::fetch_latest_version()
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| {
+            warn!("{:?}", e);
+            e.to_string()
+        })
 }
 
 #[tauri::command]
 async fn fetch_coeiroink_versions() -> Result<Vec<DownloadInfo>, String> {
     crate::coeiroink_scraping::fetch_downloads()
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| {
+            warn!("{:?}", e);
+            e.to_string()
+        })
 }
 
 #[tauri::command]
@@ -28,7 +35,10 @@ async fn get_coeiroink_version(
 ) -> Result<Option<commands::get_coeiroink_version::VersionInfo>, String> {
     commands::get_coeiroink_version::get_coeiroink_version(app_handle)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| {
+            warn!("{:?}", e);
+            e.to_string()
+        })
 }
 
 static ABORT_INSTALL: once_cell::sync::Lazy<tokio::sync::Mutex<Option<tokio::task::AbortHandle>>> =
@@ -85,6 +95,26 @@ async fn default_install_path_root() -> String {
     return install_dir.to_str().unwrap().to_string();
 }
 
+#[tauri::command]
+async fn is_safe_to_install(path: String) -> Result<bool, String> {
+    commands::directory_check::is_safe_to_install(path)
+        .await
+        .map_err(|e| {
+            warn!("{:?}", e);
+            e.to_string()
+        })
+}
+
+#[tauri::command]
+async fn is_coeiroink_dir(path: String) -> Result<bool, String> {
+    commands::directory_check::is_coeiroink_dir(path)
+        .await
+        .map_err(|e| {
+            warn!("{:?}", e);
+            e.to_string()
+        })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
@@ -94,6 +124,7 @@ pub fn run() {
 
     info!("Starting tauri application");
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
@@ -102,7 +133,9 @@ pub fn run() {
             install_coeiroink,
             cancel_install_coeiroink,
             default_install_path_root,
-            fetch_coeiroink_versions
+            fetch_coeiroink_versions,
+            is_safe_to_install,
+            is_coeiroink_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -20,11 +20,13 @@
     "@radix-ui/react-toast": "^1.1.5",
     "@radix-ui/react-tooltip": "^1.0.7",
     "@tauri-apps/api": "next",
+    "@tauri-apps/plugin-dialog": "^2.0.0-beta.5",
     "@tauri-apps/plugin-store": "^2.0.0-beta.5",
     "jotai": "^2.8.3",
     "path-browserify": "git://github.com/bbweb/path-browserify.git#win-version",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-use": "^17.5.0",
     "semver": "^7.6.2"
   },
   "devDependencies": {
